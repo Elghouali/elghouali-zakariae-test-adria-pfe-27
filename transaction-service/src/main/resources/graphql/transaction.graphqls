@@ -1,0 +1,25 @@
+scalar Decimal
+scalar Instant
+enum TransactionStatus { PENDING APPLIED COMPLETED REJECTED }
+type Transaction {
+ id: ID!
+ accountId: ID!
+ amount: Decimal!
+ currency: String!
+ merchantCategory: String!
+ country: String!
+ createdAt: Instant!
+ targetAccountId: ID
+ status: TransactionStatus!
+}
+input TransactionInput {
+ requestId: ID!
+ accountId: ID!
+ amount: Decimal!
+ currency: String!
+ merchantCategory: String!
+ country: String!
+ targetAccountId: ID
+}
+type Query { transactions: [Transaction!]!, transaction(id: ID!): Transaction! }
+type Mutation { createTransaction(input: TransactionInput!): Transaction! }

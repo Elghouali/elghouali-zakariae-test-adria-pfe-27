@@ -7,6 +7,7 @@ import java.util.function.UnaryOperator;
 import ma.adria.bank.account.domain.Account;
 
 public interface AccountRepository {
+    <T> T atomically(java.util.function.Supplier<T> action);
     List<Account> findAll();
     Optional<Account> findById(UUID id);
     Account save(Account account);

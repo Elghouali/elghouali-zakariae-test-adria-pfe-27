@@ -48,6 +48,6 @@ The stateless HTTP MCP endpoint is `/mcp`. Tools: `list_accounts`, `get_account`
 - Storage is an in-memory Java repository: restart loses all accounts. No database technology was specified or introduced.
 - Balance remains `double` as requested by the document. Only finite values are accepted; no overdraft policy is assumed.
 - Expected-balance comparison prevents a stale replacement when the current balance differs. It does not provide operation deduplication or distributed transaction guarantees.
-- Transfer orchestration and transaction amount/currency/limit checks belong to the next Transaction Service step.
+- Transaction Service now orchestrates debits/transfers. POST `/api/accounts/{id}/movements` accepts operationId, optional targetAccountId, amount and currency; successful operation IDs are deduplicated while this instance is running. Debit/transfer checks and both transfer balance changes share one repository lock.
 
 Tests cover service validation, concurrent balance updates, REST/GraphQL/MCP operations and cross-interface state, and unauthenticated/insufficient-permission requests. JaCoCo enforces 80% line coverage for this module.
