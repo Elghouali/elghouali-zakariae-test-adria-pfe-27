@@ -1,0 +1,37 @@
+
+server:
+  address: 127.0.0.1
+  port: 8083
+
+spring:
+  application:
+    name: assistant-service
+
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8180/realms/bank}
+          audiences: ${KEYCLOAK_AUDIENCE:bank-api}
+
+  ai:
+    openai:
+      api-key: ${OPENAI_API_KEY}
+    chat:
+      client:
+        tool-calling:
+          enabled: false
+
+    mcp:
+      client:
+        type: SYNC
+        initialized: false
+        streamable-http:
+          connections:
+            account-service:
+              url: http://localhost:8081
+              endpoint: /mcp
+            transaction-service:
+              url: http://localhost:8082
+              endpoint: /mcp
