@@ -5,7 +5,9 @@ import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { finalize } from 'rxjs';
 
-interface Message {
+import { KeycloakService } from './auth/keycloak.service';
+
+interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
 }
@@ -16,87 +18,114 @@ interface Message {
   imports: [CommonModule, FormsModule],
   template: `
     <div class="layout">
+
       <aside class="sidebar">
         <h2>ADRIA BANK</h2>
-        <p>Digital Banking Platform</p>
+        <p>Intelligent Banking Platform</p>
+
         <nav>
-          <a href="#overview">Overview</a>
+          <a href="#overview">Dashboard</a>
           <a href="#accounts">Accounts</a>
           <a href="#transactions">Transactions</a>
           <a href="#assistant">AI Assistant</a>
         </nav>
-        <small>ENSET PFE 2027</small>
+
+        <div class="profile">
+          <p>{{ auth.username }}</p>
+          <small>
+            {{ auth.authenticated ? 'Authenticated' : 'Disconnected' }}
+          </small>
+
+          <button class="logout" (click)="logout()">
+            Sign out
+          </button>
+        </div>
       </aside>
 
       <main>
         <header>
           <div>
             <h1>Banking Dashboard</h1>
-            <p>Accounts, transactions and AI assistance</p>
+            <p>Welcome, {{ auth.username }}</p>
           </div>
-          <span class="status">Authentication required</span>
+          <span class="status">Keycloak JWT</span>
         </header>
 
         <section id="overview" class="cards">
           <article>
-            <h3>Accounts</h3>
-            <p>Account management</p>
-            <strong>Not connected</strong>
+            <h3>Account Management</h3>
+            <p>Account Service</p>
+            <strong>
+              {{ auth.hasScope('accounts:manage')
+                ? 'Authorized'
+                : 'Access restricted' }}
+            </strong>
           </article>
+
           <article>
             <h3>Transactions</h3>
-            <p>Transfers and debits</p>
-            <strong>Not connected</strong>
+            <p>Transaction Service</p>
+            <strong>
+              {{ auth.hasScope('transactions:manage')
+                ? 'Authorized'
+                : 'Access restricted' }}
+            </strong>
           </article>
+
           <article>
             <h3>Security</h3>
-            <p>Keycloak JWT</p>
-            <strong>Integration pending</strong>
+            <p>OAuth 2.0 / OIDC</p>
+            <strong>PKCE S256</strong>
           </article>
         </section>
 
         <section id="accounts" class="panel">
-          <h2>My Accounts</h2>
+          <h2>Accounts</h2>
           <p>
-            Account lookup and balance display will use
-            authenticated Account Service endpoints.
+            The authenticated Account Service connection
+            will be integrated here.
           </p>
-          <span class="notice">No banking data loaded</span>
+          <span class="notice">No account data loaded</span>
         </section>
 
         <section id="transactions" class="panel">
           <h2>Transactions</h2>
           <p>
-            Transaction history and transfer forms will
-            be connected after authorization setup.
+            The authenticated debit, transfer and
+            transaction-history interfaces are pending.
           </p>
-          <span class="notice">No transactions loaded</span>
+          <span class="notice">No transaction data loaded</span>
         </section>
 
-        <section id="assistant" class="panel chat">
+        <section id="assistant" class="panel">
           <h2>AI Banking Assistant</h2>
+          <p>
+            Secured with your Keycloak access token.
+            Banking MCP tool execution remains disabled.
+          </p>
 
           <div class="messages" aria-live="polite">
             <div
-              *ngFor="let message of messages"
+              *ngFor="let item of messages"
               class="message"
-              [class.user]="message.role === 'user'">
+              [class.user]="item.role === 'user'">
               <strong>
-                {{ message.role === 'user' ? 'You' : 'Assistant' }}
+                {{ item.role === 'user' ? 'You' : 'Assistant' }}
               </strong>
-              <p>{{ message.content }}</p>
+              <p>{{ item.content }}</p>
             </div>
           </div>
 
-          <form (ngSubmit)="sendMessage()" class="composer">
+          <form (ngSubmit)="send()" class="composer">
             <input
-              name="message"
+              name="chatMessage"
               [(ngModel)]="input"
-              [disabled]="loading"
               maxlength="4000"
-              placeholder="Ask your banking assistant..."
+              [disabled]="loading"
+              placeholder="Ask the banking assistant..."
               aria-label="Chat message"
             />
+
             <button
               type="submit"
               [disabled]="loading || !input.trim()">
@@ -110,96 +139,140 @@ interface Message {
   styles: [`
     :host {
       display: block;
-      font-family: Arial, sans-serif;
-      color: #172339;
-      background: #f4f7fb;
       min-height: 100vh;
+      font-family: Arial, sans-serif;
+      background: #f4f7fb;
+      color: #172339;
     }
+
     .layout { display: flex; min-height: 100vh; }
+
     .sidebar {
-      width: 230px;
+      width: 240px;
       flex-shrink: 0;
       background: #102343;
       color: white;
-      padding: 28px 22px;
-      box-sizing: border-box;
+      padding: 28px 20px;
     }
-    .sidebar h2 { margin: 0; letter-spacing: 1px; }
-    .sidebar p, .sidebar small { color: #b9c7dc; }
-    nav { display: grid; gap: 12px; margin: 40px 0; }
-    nav a { color: white; text-decoration: none; padding: 10px; }
-    nav a:hover { background: #253c61; border-radius: 8px; }
-    main { flex: 1; min-width: 0; padding: 32px; }
+
+    .sidebar h2 { margin: 0; }
+    .sidebar p, .sidebar small { color: #c0cce0; }
+
+    nav { display: grid; gap: 12px; margin: 35px 0; }
+
+    nav a {
+      color: white;
+      text-decoration: none;
+      padding: 10px;
+      border-radius: 8px;
+    }
+
+    nav a:hover { background: #263e63; }
+
+    .profile { margin-top: 45px; }
+
+    main {
+      flex: 1;
+      min-width: 0;
+      padding: 32px;
+    }
+
     header {
       display: flex;
       justify-content: space-between;
       align-items: center;
       gap: 15px;
-      margin-bottom: 30px;
+      margin-bottom: 28px;
     }
-    header h1 { margin-bottom: 5px; }
-    header p { color: #617087; }
+
+    header h1 { margin-bottom: 4px; }
+
+    header p, article p, .panel > p {
+      color: #617087;
+    }
+
     .status, .notice {
-      background: #e8edf5;
+      background: #e8eef7;
       border-radius: 18px;
       padding: 8px 12px;
       font-size: 12px;
     }
+
     .cards {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 16px;
     }
+
     article, .panel {
       background: white;
-      padding: 22px;
+      border: 1px solid #e2e8f0;
       border-radius: 14px;
-      border: 1px solid #e3e9f1;
+      padding: 22px;
       margin-bottom: 20px;
     }
-    article p, .panel > p { color: #617087; }
-    article strong { font-size: 13px; }
+
+    article strong { color: #183e78; }
+
     .messages {
-      height: 280px;
+      height: 300px;
       overflow-y: auto;
-      background: #f7f9fc;
-      padding: 16px;
+      background: #f6f8fc;
       border-radius: 10px;
+      padding: 15px;
     }
+
     .message {
       background: white;
       padding: 12px;
-      border-radius: 10px;
       margin-bottom: 12px;
+      border-radius: 10px;
       max-width: 85%;
       overflow-wrap: anywhere;
     }
+
     .message.user {
       background: #dce9fa;
       margin-left: auto;
     }
-    .message p { margin-bottom: 0; white-space: pre-wrap; }
-    .composer { display: flex; gap: 10px; margin-top: 16px; }
+
+    .message p { white-space: pre-wrap; }
+
+    .composer {
+      display: flex;
+      gap: 10px;
+      margin-top: 15px;
+    }
+
     input {
       flex: 1;
       min-width: 0;
-      padding: 13px;
-      border: 1px solid #ccd6e2;
+      padding: 12px;
+      border: 1px solid #cbd5e1;
       border-radius: 8px;
     }
+
     button {
       background: #183e78;
       color: white;
+      padding: 12px 18px;
       border: 0;
       border-radius: 8px;
-      padding: 0 20px;
-      cursor: pointer;
     }
-    button:disabled { opacity: .5; cursor: not-allowed; }
+
+    button:disabled {
+      opacity: .5;
+      cursor: not-allowed;
+    }
+
+    .logout {
+      margin-top: 12px;
+      background: #a43c45;
+    }
+
     @media (max-width: 800px) {
       .layout { flex-direction: column; }
       .sidebar { width: 100%; }
-      nav { margin: 15px 0; }
       main { padding: 16px; }
       .cards { grid-template-columns: 1fr; }
       header { flex-direction: column; align-items: flex-start; }
@@ -207,28 +280,30 @@ interface Message {
   `]
 })
 export class BankingDashboard {
+
+  readonly auth = inject(KeycloakService);
   private readonly http = inject(HttpClient);
 
   input = '';
   loading = false;
 
-  messages: Message[] = [{
+  messages: ChatMessage[] = [{
     role: 'assistant',
-    content: 'Welcome to ADRIA Banking Assistant. Sign-in integration is pending.'
+    content: 'Welcome to ADRIA Banking Assistant.'
   }];
 
-  sendMessage(): void {
-    const question = this.input.trim();
+  send(): void {
+    const message = this.input.trim();
 
-    if (!question || this.loading) return;
+    if (!message || this.loading) return;
 
-    this.messages.push({ role: 'user', content: question });
+    this.messages.push({ role: 'user', content: message });
     this.input = '';
     this.loading = true;
 
     this.http.post<{ reply: string }>(
       '/api/chat',
-      { message: question }
+      { message }
     ).pipe(
       finalize(() => this.loading = false)
     ).subscribe({
@@ -242,12 +317,16 @@ export class BankingDashboard {
         this.messages.push({
           role: 'assistant',
           content: error.status === 401
-            ? 'Please sign in with Keycloak before using chat.'
+            ? 'Your session is not authenticated.'
             : error.status === 403
-              ? 'You do not have the required banking permissions.'
-              : 'Assistant unavailable. Check the backend connection.'
+              ? 'You do not have the required banking scope.'
+              : 'Assistant unavailable. Please try again later.'
         });
       }
     });
+  }
+
+  async logout(): Promise<void> {
+    await this.auth.logout();
   }
 }
