@@ -38,3 +38,8 @@ spring:
             transaction-service:
               url: http://localhost:8082
               endpoint: /mcp
+
+bank:
+  mcp:
+    account-url: http://localhost:8081/mcp
+    transaction-url: http://localhost:8082/mcp
