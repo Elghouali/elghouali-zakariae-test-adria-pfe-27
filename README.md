@@ -8,7 +8,8 @@ Maven multi-module banking project with an Angular frontend, following the test 
 - Config Service: runnable native Config Server sharing `bank.transaction.max-amount=1000`.
 - Gateway Service: runnable gateway, Config Server client and Eureka client; routes prepared for banking services.
 - Angular: CLI-generated standalone application with routing and a minimal starter screen.
-- Account Service, Transaction Service, Assistant Service and Transaction Consumer: structure only, implementation pending.
+- Account Service: in-memory account management through REST, GraphQL and MCP; Keycloak JWT permission boundary configured. See [Account Service](account-service/README.md).
+- Transaction Service, Assistant Service and Transaction Consumer: structure only, implementation pending.
 - Python fraud detection, Dockerfiles, Compose and PDF report: pending.
 
 No database or LLM provider has been selected. Banking REST, GraphQL and MCP adapters will share each service's application layer.
@@ -27,7 +28,7 @@ npm test -- --watch=false
 npm run build
 ```
 
-The four unimplemented Java modules contain no application code or tests yet. The generated Angular smoke tests verify app creation and rendering. Infrastructure endpoints are also checked manually; there are no banking tests at this checkpoint.
+The three unimplemented Java modules contain no application code or tests yet. Account Service has service and interface integration tests, plus an 80% line coverage gate. The generated Angular smoke tests verify app creation and rendering. Infrastructure endpoints are also checked manually; Account Service tests cover account validation, status changes, balance concurrency and all three interfaces.
 
 ## Run infrastructure locally
 
@@ -46,7 +47,7 @@ java -jar gateway-service/target/gateway-service-0.0.1-SNAPSHOT.jar
 
 Infrastructure binds to loopback by default. Gateway requires Config Server at startup. Override `CONFIG_SERVER_URL`, `EUREKA_URL`, `SERVER_PORT` and `SERVER_ADDRESS` when needed.
 
-Gateway routes `/api/accounts/**`, `/api/transactions/**` and `/api/chat/**` are reserved for downstream services; they cannot complete banking requests until those services exist. Keycloak integration is pending, so these services currently expose local development infrastructure only.
+Gateway routes `/api/accounts/**`, `/api/transactions/**` and `/api/chat/**` are reserved for downstream services; they cannot complete banking requests until those services exist. Account Service requires an accounts:manage bearer token; live Keycloak realm setup is pending. Other banking services and assistant routes remain unimplemented.
 
 Dockerfiles and Compose remain explicit placeholders. GitHub Actions builds the Maven reactor and builds/tests Angular; image publication and the schematic deployment stage remain pending.
 
